@@ -80,7 +80,7 @@ export function buildStylePrompt({
   styleBrief,
   hasReferenceImage = false,
 }: BuildStylePromptInput) {
-  const selectedImprovements =
+  const selectedImprovements: ImprovementOption[] =
     improvements.length > 0 ? improvements : ["Outfit", "Background", "Lighting", "Overall Polish"];
   const improvementCopy = selectedImprovements
     .map((item) => `- ${IMPROVEMENT_INSTRUCTIONS[item]}`)

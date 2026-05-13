@@ -1,4 +1,5 @@
 import OpenAI, { toFile } from "openai";
+import type { ImageEditParamsNonStreaming } from "openai/resources/images";
 import { NextResponse } from "next/server";
 import { buildStylePrompt } from "@/lib/visio/prompt-builder";
 import {
@@ -157,7 +158,7 @@ export async function POST(request: Request) {
       editImages.push(referenceFile);
     }
 
-    const response = await client.images.edit({
+    const editParams: ImageEditParamsNonStreaming = {
       model: "gpt-image-2",
       image: editImages.length > 1 ? editImages : editImages[0],
       prompt,
@@ -165,7 +166,10 @@ export async function POST(request: Request) {
       size: "1024x1536",
       quality: "medium",
       output_format: "jpeg",
-    } as Parameters<typeof client.images.edit>[0]);
+      stream: false,
+    };
+
+    const response = await client.images.edit(editParams);
 
     const base64 = response.data?.[0]?.b64_json;
 
