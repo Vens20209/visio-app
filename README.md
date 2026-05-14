@@ -67,7 +67,7 @@ Open [http://localhost:3000](http://localhost:3000).
    - `occasion`
    - `styleBrief`
 3. The server validates the user image, optional reference image, mode, file sizes, vibe, intensity, and API key. Try This On requires `referenceImage`.
-4. The server builds a layered identity-preserving prompt in `lib/visio/prompt-builder.ts`, including mode, occasion, style brief, vibe, improvements, intensity, reference outfit guidance, and the rule “Enhance, do not replace.”
+4. The server builds a layered identity-preserving prompt in `lib/visio/prompt-builder.ts`, including mode, occasion, style brief, vibe, improvements, intensity, reference outfit guidance, and the rule "Enhance, do not replace."
 5. The server calls the OpenAI Node SDK with `client.images.edit` using:
    - `model: "gpt-image-2"`
    - `size: "1024x1536"`
@@ -89,7 +89,7 @@ Real:
 - Download button
 - Local browser saved looks with original image, generated image, optional reference image, mode, vibe, occasion, style brief, improvements, intensity, stylist notes, shopping links, and generation date
 - Delete saved look
-- Branded “Share your Visio glow-up” before/after card download
+- Branded "Share your Visio glow-up" before/after card download
 
 Not included in V1:
 

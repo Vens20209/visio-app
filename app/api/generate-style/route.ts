@@ -79,7 +79,6 @@ function validateImageFile(file: FormDataEntryValue | null, label: string) {
 function cleanText(value: FormDataEntryValue | null) {
   return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, 900);
 }
-
 export async function POST(request: Request) {
   if (!process.env.OPENAI_API_KEY) {
     return errorResponse(
@@ -161,6 +160,14 @@ export async function POST(request: Request) {
     const editParams: ImageEditParamsNonStreaming = {
       model: "gpt-image-2",
       image: editImages.length > 1 ? editImages : editImages[0],
+    const imageFile = await toFile(Buffer.from(arrayBuffer), image.name || "visio-upload.jpg", {
+      type: image.type,
+    });
+
+    const response = await client.images.edit({
+      model: "gpt-image-2",
+      image: imageFile,
+>>>>>>> origin/main
       prompt,
       n: 1,
       size: "1024x1536",
@@ -192,5 +199,6 @@ export async function POST(request: Request) {
     const { message, details } = friendlyOpenAIError(error);
     console.error("Visio generation failed", error);
     return errorResponse(message, 502, details);
+
   }
 }
