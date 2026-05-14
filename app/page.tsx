@@ -27,14 +27,14 @@ export default function HomePage() {
               See your best look before you become it.
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-muted md:text-xl">
-              Upload your photo, choose a style vibe, and let Visio generate a fresher, cleaner, more stylish version of you—without replacing who you are.
+              Tell Visio where you’re going, choose a vibe, optionally upload outfit inspiration, and get an identity-preserving style direction for the moment.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <Link href="/app" className={cn(buttonVariants({ size: "lg" }))}>Try Visio <ArrowRight className="ml-2 h-4 w-4" /></Link>
             <Link href="/saved" className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>View saved looks</Link>
           </div>
-          <p className="text-sm text-muted">Enhance, do not replace. Built for realistic styling, outfit, lighting, and presentation upgrades.</p>
+          <p className="text-sm text-muted">Tell Visio where you’re going. We’ll show you what to wear. Enhance, do not replace.</p>
         </div>
 
         <Card className="relative overflow-hidden p-4 shadow-2xl shadow-primary/10">
