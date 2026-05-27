@@ -26,7 +26,22 @@ function friendlyOpenAIError(error: unknown) {
   const details = error instanceof Error ? error.message : "Unknown OpenAI image editing error.";
   const lowerDetails = details.toLowerCase();
 
-  if (lowerDetails.includes("api key") || lowerDetails.includes("authentication")) {
+  const verificationOrAccessIssue =
+    lowerDetails.includes("verification") ||
+    lowerDetails.includes("permission_denied") ||
+    lowerDetails.includes("model_not_found") ||
+    lowerDetails.includes("organization") ||
+    lowerDetails.includes("org-");
+
+  if (verificationOrAccessIssue) {
+    return {
+      message:
+        "Visio is connected, but your OpenAI account may require Organization Verification or model access to run gpt-image-2. Please check your OpenAI Platform organization settings and model access.",
+      details,
+    };
+  }
+
+  if (lowerDetails.includes("api key") || lowerDetails.includes("authentication") || lowerDetails.includes("invalid_api_key")) {
     return {
       message: "Visio could not authenticate with OpenAI. Please check the API key in .env.local.",
       details,
@@ -36,7 +51,6 @@ function friendlyOpenAIError(error: unknown) {
   if (
     lowerDetails.includes("model") ||
     lowerDetails.includes("access") ||
-    lowerDetails.includes("verification") ||
     lowerDetails.includes("permission")
   ) {
     return {
@@ -92,7 +106,7 @@ export async function POST(request: Request) {
   try {
     formData = await request.formData();
   } catch {
-    return errorResponse("Please upload an image using multipart/form-data.");
+    return errorResponse("The upload could not be read. Please try again with a valid multipart form upload.");
   }
 
   const imageResult = validateImageFile(formData.get("image"), "User photo");
@@ -130,7 +144,7 @@ export async function POST(request: Request) {
   }
 
   if (modeValue === "try-this-on" && !referenceImage) {
-    return errorResponse("Upload an outfit inspiration image so Visio can try that style on you.");
+    return errorResponse("Upload an outfit inspiration image so Visio can map that style to your photo.");
   }
 
   const improvements = normalizeImprovements(improvementValues);
@@ -190,7 +204,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const { message, details } = friendlyOpenAIError(error);
-    console.error("Visio generation failed", error);
-    return errorResponse(message, 502, details);
+    console.error("Visio generation failed", { error, details });
+    return errorResponse(message, 502);
   }
 }

@@ -16,8 +16,14 @@ const IDENTITY_RULE =
 const EXACT_IDENTITY_RULE =
   "Identity preservation is more important than fashion creativity. If there is a conflict, keep the person the same. Preserve the exact same facial identity: same face structure, eyes, nose, lips, jawline, hairline, skin tone, facial hair if present, age range, and recognizability. Do not beautify by changing facial features. Do not make the person look like a different model.";
 
+const IDENTITY_PRIORITY_RULE =
+  "Identity preservation is non-negotiable and takes strict priority over fashion creativity. If a styling choice changes the user's unique facial structure, age, ethnicity, skin tone, body shape, or likeness, reject that modification. Maintain the core human element and authentic personal identity above all else.";
+
+const ANTI_MODELIFICATION_RULE =
+  "Avoid plastic skin textures, hyper-polished runway symmetry, generic model faces, or influencer-style face replacement. The user must look exactly like themselves on their best styling day. Same person first. Style second.";
+
 const BODY_AND_CAMERA_RULE =
-  "Preserve the same body shape, height impression, proportions, natural build, and posture. Keep the original pose, facial expression, framing, and camera angle as close as possible unless the user explicitly asks otherwise. Do not change ethnicity, skin tone, age, body type, or facial expression too much.";
+  "Preserve the same body shape, height impression, proportions, natural build, and posture. Preserve expression energy and the person's natural presence. Keep the original pose, facial expression, framing, and camera angle as close as possible unless the user explicitly asks otherwise. Do not change ethnicity, skin tone, age, body type, or facial expression too much.";
 
 const MODE_INSTRUCTIONS: Record<StyleMode, string> = {
   "style-me":
@@ -98,6 +104,8 @@ export function buildStylePrompt({
   return [
     IDENTITY_RULE,
     EXACT_IDENTITY_RULE,
+    IDENTITY_PRIORITY_RULE,
+    ANTI_MODELIFICATION_RULE,
     BODY_AND_CAMERA_RULE,
     MODE_INSTRUCTIONS[mode],
     `Occasion: ${cleanUserText(occasion)}`,
