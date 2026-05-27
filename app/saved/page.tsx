@@ -9,6 +9,13 @@ import { Card } from "@/components/ui/card";
 import type { ShoppingLink, StylistNotes } from "@/lib/visio/stylist-notes";
 import type { StyleIntensity, StyleMode } from "@/lib/visio/options";
 
+type ResultFeedbackOption =
+  | "That’s me but better"
+  | "Face changed too much"
+  | "Outfit not my style"
+  | "Make it more realistic"
+  | "Make it more stylish";
+
 type SavedLook = {
   id: string;
   image: string;
@@ -24,6 +31,7 @@ type SavedLook = {
   shoppingLinks?: ShoppingLink[];
   createdAt: string;
   mimeType: string;
+  resultFeedback?: ResultFeedbackOption;
 };
 
 const STORAGE_KEY = "visio:saved-looks";
@@ -128,6 +136,11 @@ export default function SavedLooksPage() {
                 )}
 
                 {look.styleBrief && <p className="line-clamp-2 text-xs text-muted">Brief: {look.styleBrief}</p>}
+                {look.resultFeedback && (
+                  <div className="rounded-2xl border border-primary/30 bg-primary/10 p-3 text-xs text-accent">
+                    Feedback: {look.resultFeedback}
+                  </div>
+                )}
 
                 {look.shoppingLinks && look.shoppingLinks.length > 0 && (
                   <div>
