@@ -8,6 +8,7 @@ type BuildStylePromptInput = {
   occasion?: string;
   styleBrief?: string;
   hasReferenceImage?: boolean;
+  resultFeedback?: string;
 };
 
 const IDENTITY_RULE =
@@ -67,6 +68,19 @@ const IMPROVEMENT_INSTRUCTIONS: Record<ImprovementOption, string> = {
     "Apply only subtle grooming polish such as neater hair presentation or tidy details; do not alter facial structure or age.",
 };
 
+const FEEDBACK_RULES: Record<string, string> = {
+  "That’s me but better":
+    "Feedback applied: That’s me but better. Repeat the same general style direction and preserve the winning formula. Keep identity, body shape, face, age, skin tone, and natural expression unchanged. Improve only polish, fit, lighting, and outfit quality.",
+  "Face changed too much":
+    "Feedback applied: Face changed too much. Make identity preservation extremely strict. Do not alter face shape, facial proportions, skin tone, age, body structure, or expression. Reduce model-like transformation so the user looks unmistakably like the uploaded person.",
+  "Outfit not my style":
+    "Feedback applied: Outfit not my style. Avoid the previous outfit direction. Keep the same occasion, but choose a different clothing style, silhouette, color palette, and vibe. Do not repeat the previous look.",
+  "Make it more realistic":
+    "Feedback applied: Make it more realistic. Reduce cinematic fashion-editorial styling. Use natural lighting, realistic clothing fit, believable fabric texture, and normal human proportions. Avoid an over-polished model look.",
+  "Make it more stylish":
+    "Feedback applied: Make it more stylish. Upgrade the outfit with stronger fashion direction, better layering, cleaner color coordination, sharper fit, and tasteful accessories while preserving identity and realistic body shape.",
+};
+
 function cleanUserText(value?: string) {
   return value?.replace(/\s+/g, " ").trim().slice(0, 900) || "Not specified.";
 }
@@ -79,6 +93,7 @@ export function buildStylePrompt({
   occasion,
   styleBrief,
   hasReferenceImage = false,
+  resultFeedback,
 }: BuildStylePromptInput) {
   const selectedImprovements: ImprovementOption[] =
     improvements.length > 0 ? improvements : ["Outfit", "Background", "Lighting", "Overall Polish"];
@@ -95,6 +110,9 @@ export function buildStylePrompt({
     "Selected improvements:",
     improvementCopy,
     `Style intensity: ${intensity}. ${INTENSITY_INSTRUCTIONS[intensity]}`,
+    resultFeedback && FEEDBACK_RULES[resultFeedback]
+      ? FEEDBACK_RULES[resultFeedback]
+      : "No explicit result feedback was provided; follow the selected options and produce the best identity-preserving style upgrade.",
     hasReferenceImage ? REFERENCE_RULE : "No reference outfit image was provided; create the outfit direction from the user's occasion, style brief, vibe, intensity, and improvements.",
     SAFETY_STYLE_RULE,
     "Keep the final image realistic, natural, tasteful, premium, and full-body or portrait-friendly. Make the outfit readable and suitable for a before-and-after AI stylist comparison.",

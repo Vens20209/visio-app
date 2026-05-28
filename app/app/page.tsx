@@ -74,6 +74,7 @@ const RESULT_FEEDBACK_OPTIONS: ResultFeedbackOption[] = [
 ];
 
 const FEEDBACK_HISTORY_KEY = "visio:feedback-history";
+const SAVED_LOOKS_KEY = "visio:saved-looks";
 
 const loadingSteps = [
   "Reading your photo...",
@@ -269,6 +270,8 @@ export default function VisioAppPage() {
     setSavedMessage("");
 
     const body = new FormData();
+    const latestFeedbackForCurrentLook = getLatestFeedbackForCurrentLook();
+    const feedbackForNextResult = selectedFeedback ?? latestFeedbackForCurrentLook;
     body.append("image", file);
     if (referenceFile) body.append("referenceImage", referenceFile);
     body.append("mode", mode);
@@ -276,6 +279,9 @@ export default function VisioAppPage() {
     body.append("intensity", intensity);
     body.append("occasion", occasion);
     body.append("styleBrief", styleBrief);
+    if (feedbackForNextResult) {
+      body.append("resultFeedback", feedbackForNextResult);
+    }
     improvements.forEach((item) => body.append("improvements", item));
 
     try {
@@ -381,9 +387,16 @@ export default function VisioAppPage() {
       mimeType,
       resultFeedback: selectedFeedback || undefined,
     };
-    const current = JSON.parse(window.localStorage.getItem("visio:saved-looks") || "[]") as SavedLook[];
-    window.localStorage.setItem("visio:saved-looks", JSON.stringify([look, ...current]));
+    const current = JSON.parse(window.localStorage.getItem(SAVED_LOOKS_KEY) || "[]") as SavedLook[];
+    window.localStorage.setItem(SAVED_LOOKS_KEY, JSON.stringify([look, ...current]));
     setSavedMessage("Saved locally in this browser.");
+  }
+
+  function getLatestFeedbackForCurrentLook() {
+    if (!generatedUrl || !preview) return null;
+    const history = JSON.parse(window.localStorage.getItem(FEEDBACK_HISTORY_KEY) || "[]") as FeedbackHistoryEntry[];
+    const match = history.find((entry) => entry.generatedImage === generatedUrl && entry.originalImage === preview);
+    return match?.feedback ?? null;
   }
 
   function saveResultFeedback(feedback: ResultFeedbackOption) {
@@ -650,6 +663,7 @@ export default function VisioAppPage() {
                     );
                   })}
                 </div>
+                {selectedFeedback && <p className="mt-3 text-xs text-accent">Your next generation will use this feedback.</p>}
               </Card>
 
               {stylistNotes && (

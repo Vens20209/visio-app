@@ -102,6 +102,7 @@ export async function POST(request: Request) {
   const occasion = cleanText(formData.get("occasion"));
   const styleBrief = cleanText(formData.get("styleBrief"));
   const improvementValues = formData.getAll("improvements").map(String);
+  const resultFeedback = cleanText(formData.get("resultFeedback"));
 
   if (imageResult.error || !imageResult.file) {
     return errorResponse(imageResult.error ?? "Upload a photo first so Visio can style the real you.");
@@ -141,6 +142,7 @@ export async function POST(request: Request) {
     occasion,
     styleBrief,
     hasReferenceImage: Boolean(referenceImage),
+    resultFeedback: resultFeedback || undefined,
   });
 
   try {
@@ -185,6 +187,7 @@ export async function POST(request: Request) {
       intensity: intensityValue,
       occasion,
       styleBrief,
+      resultFeedback: resultFeedback || null,
       usedReferenceImage: Boolean(referenceImage),
     });
   } catch (error) {
