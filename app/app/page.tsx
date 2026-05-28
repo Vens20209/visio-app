@@ -40,7 +40,41 @@ type SavedLook = {
   shoppingLinks: ShoppingLink[];
   createdAt: string;
   mimeType: string;
+  resultFeedback?: ResultFeedbackOption;
 };
+
+type ResultFeedbackOption =
+  | "That’s me but better"
+  | "Face changed too much"
+  | "Outfit not my style"
+  | "Make it more realistic"
+  | "Make it more stylish";
+
+type FeedbackHistoryEntry = {
+  id: string;
+  feedback: ResultFeedbackOption;
+  createdAt: string;
+  mode: StyleMode;
+  vibe: StyleVibe;
+  intensity: StyleIntensity;
+  occasion: string;
+  styleBrief: string;
+  improvements: string[];
+  originalImage: string;
+  generatedImage: string;
+  referenceImage?: string;
+};
+
+const RESULT_FEEDBACK_OPTIONS: ResultFeedbackOption[] = [
+  "That’s me but better",
+  "Face changed too much",
+  "Outfit not my style",
+  "Make it more realistic",
+  "Make it more stylish",
+];
+
+const FEEDBACK_HISTORY_KEY = "visio:feedback-history";
+const SAVED_LOOKS_KEY = "visio:saved-looks";
 
 const loadingSteps = [
   "Reading your photo...",
@@ -142,6 +176,7 @@ export default function VisioAppPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
+  const [selectedFeedback, setSelectedFeedback] = useState<ResultFeedbackOption | null>(null);
   const [loadingIndex, setLoadingIndex] = useState(0);
 
   useEffect(() => {
@@ -157,6 +192,7 @@ export default function VisioAppPage() {
     setStylistNotes(null);
     setShoppingLinks([]);
     setSavedMessage("");
+    setSelectedFeedback(null);
   }
 
   function validateImage(selected: File) {
@@ -234,6 +270,8 @@ export default function VisioAppPage() {
     setSavedMessage("");
 
     const body = new FormData();
+    const latestFeedbackForCurrentLook = getLatestFeedbackForCurrentLook();
+    const feedbackForNextResult = selectedFeedback ?? latestFeedbackForCurrentLook;
     body.append("image", file);
     if (referenceFile) body.append("referenceImage", referenceFile);
     body.append("mode", mode);
@@ -241,6 +279,9 @@ export default function VisioAppPage() {
     body.append("intensity", intensity);
     body.append("occasion", occasion);
     body.append("styleBrief", styleBrief);
+    if (feedbackForNextResult) {
+      body.append("resultFeedback", feedbackForNextResult);
+    }
     improvements.forEach((item) => body.append("improvements", item));
 
     try {
@@ -344,10 +385,40 @@ export default function VisioAppPage() {
       shoppingLinks: links,
       createdAt: new Date().toISOString(),
       mimeType,
+      resultFeedback: selectedFeedback || undefined,
     };
-    const current = JSON.parse(window.localStorage.getItem("visio:saved-looks") || "[]") as SavedLook[];
-    window.localStorage.setItem("visio:saved-looks", JSON.stringify([look, ...current]));
+    const current = JSON.parse(window.localStorage.getItem(SAVED_LOOKS_KEY) || "[]") as SavedLook[];
+    window.localStorage.setItem(SAVED_LOOKS_KEY, JSON.stringify([look, ...current]));
     setSavedMessage("Saved locally in this browser.");
+  }
+
+  function getLatestFeedbackForCurrentLook() {
+    if (!generatedUrl || !preview) return null;
+    const history = JSON.parse(window.localStorage.getItem(FEEDBACK_HISTORY_KEY) || "[]") as FeedbackHistoryEntry[];
+    const match = history.find((entry) => entry.generatedImage === generatedUrl && entry.originalImage === preview);
+    return match?.feedback ?? null;
+  }
+
+  function saveResultFeedback(feedback: ResultFeedbackOption) {
+    if (!generatedUrl || !preview) return;
+    setSelectedFeedback(feedback);
+    const entry: FeedbackHistoryEntry = {
+      id: crypto.randomUUID(),
+      feedback,
+      createdAt: new Date().toISOString(),
+      mode,
+      vibe,
+      intensity,
+      occasion,
+      styleBrief,
+      improvements,
+      originalImage: preview,
+      generatedImage: generatedUrl,
+      referenceImage: referencePreview || undefined,
+    };
+    const history = JSON.parse(window.localStorage.getItem(FEEDBACK_HISTORY_KEY) || "[]") as FeedbackHistoryEntry[];
+    window.localStorage.setItem(FEEDBACK_HISTORY_KEY, JSON.stringify([entry, ...history]));
+    setSavedMessage("Feedback saved. Visio will use this to improve your next result.");
   }
 
   return (
@@ -568,6 +639,32 @@ export default function VisioAppPage() {
               </div>
               <p className="text-xs text-muted">Share your Visio glow-up as a branded before/after card.</p>
               {savedMessage && <p className="text-sm text-accent">{savedMessage}</p>}
+
+              <Card className="p-5">
+                <h3 className="text-xl font-semibold">Result Feedback</h3>
+                <p className="mt-1 text-sm text-muted">Tell Visio how this result felt so your next generation improves.</p>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {RESULT_FEEDBACK_OPTIONS.map((option) => {
+                    const active = selectedFeedback === option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => saveResultFeedback(option)}
+                        className={cn(
+                          "rounded-2xl border px-4 py-3 text-left text-sm transition",
+                          active
+                            ? "border-primary bg-primary/20 text-white shadow-glow"
+                            : "border-white/10 bg-white/[0.03] text-muted hover:border-primary/40 hover:text-white"
+                        )}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedFeedback && <p className="mt-3 text-xs text-accent">Your next generation will use this feedback.</p>}
+              </Card>
 
               {stylistNotes && (
                 <Card className="p-5">
