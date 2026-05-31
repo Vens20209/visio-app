@@ -17,6 +17,9 @@ export const maxDuration = 60;
 
 const ACCEPTED_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 5;
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 function errorResponse(message: string, status = 400, details?: string) {
   return NextResponse.json({ error: message, details }, { status });
@@ -79,7 +82,42 @@ function validateImageFile(file: FormDataEntryValue | null, label: string) {
 function cleanText(value: FormDataEntryValue | null) {
   return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, 900);
 }
+
+function getRateLimitKey(request: Request) {
+  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return (
+    forwardedFor ||
+    request.headers.get("x-real-ip") ||
+    request.headers.get("cf-connecting-ip") ||
+    request.headers.get("user-agent") ||
+    "anonymous"
+  );
+}
+
+function checkRateLimit(request: Request) {
+  const now = Date.now();
+  for (const [key, bucket] of rateLimitStore) {
+    if (bucket.resetAt <= now) rateLimitStore.delete(key);
+  }
+
+  const key = getRateLimitKey(request);
+  const bucket = rateLimitStore.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    rateLimitStore.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+
+  if (bucket.count >= RATE_LIMIT_MAX_REQUESTS) return false;
+  bucket.count += 1;
+  rateLimitStore.set(key, bucket);
+  return true;
+}
+
 export async function POST(request: Request) {
+  if (!checkRateLimit(request)) {
+    return errorResponse("You’ve reached the free generation limit for now. Please try again later.", 429);
+  }
+
   if (!process.env.OPENAI_API_KEY) {
     return errorResponse(
       "Visio is missing its OpenAI API key. Add OPENAI_API_KEY to .env.local and restart the dev server.",
@@ -102,6 +140,7 @@ export async function POST(request: Request) {
   const occasion = cleanText(formData.get("occasion"));
   const styleBrief = cleanText(formData.get("styleBrief"));
   const improvementValues = formData.getAll("improvements").map(String);
+  const resultFeedback = cleanText(formData.get("resultFeedback"));
 
   if (imageResult.error || !imageResult.file) {
     return errorResponse(imageResult.error ?? "Upload a photo first so Visio can style the real you.");
@@ -141,6 +180,7 @@ export async function POST(request: Request) {
     occasion,
     styleBrief,
     hasReferenceImage: Boolean(referenceImage),
+    resultFeedback: resultFeedback || undefined,
   });
 
   try {
@@ -185,6 +225,7 @@ export async function POST(request: Request) {
       intensity: intensityValue,
       occasion,
       styleBrief,
+      resultFeedback: resultFeedback || null,
       usedReferenceImage: Boolean(referenceImage),
     });
   } catch (error) {
