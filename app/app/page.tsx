@@ -62,6 +62,7 @@ type FeedbackHistoryEntry = {
   improvements: string[];
   originalImage?: string;
   generatedImageKey: string;
+  generatedImage: string;
   referenceImage?: string;
 };
 
@@ -493,6 +494,35 @@ export default function VisioAppPage() {
         ? "Feedback saved. Visio will use this to improve your next result."
         : "Feedback selected, but storage is full. Your next generation will still use it in this session."
     );
+  }
+
+  function getLatestFeedbackForCurrentLook() {
+    if (!generatedUrl || !preview) return null;
+    const history = JSON.parse(window.localStorage.getItem(FEEDBACK_HISTORY_KEY) || "[]") as FeedbackHistoryEntry[];
+    const match = history.find((entry) => entry.generatedImage === generatedUrl && entry.originalImage === preview);
+    return match?.feedback ?? null;
+  }
+
+  function saveResultFeedback(feedback: ResultFeedbackOption) {
+    if (!generatedUrl || !preview) return;
+    setSelectedFeedback(feedback);
+    const entry: FeedbackHistoryEntry = {
+      id: crypto.randomUUID(),
+      feedback,
+      createdAt: new Date().toISOString(),
+      mode,
+      vibe,
+      intensity,
+      occasion,
+      styleBrief,
+      improvements,
+      originalImage: preview,
+      generatedImage: generatedUrl,
+      referenceImage: referencePreview || undefined,
+    };
+    const history = JSON.parse(window.localStorage.getItem(FEEDBACK_HISTORY_KEY) || "[]") as FeedbackHistoryEntry[];
+    window.localStorage.setItem(FEEDBACK_HISTORY_KEY, JSON.stringify([entry, ...history]));
+    setSavedMessage("Feedback saved. Visio will use this to improve your next result.");
   }
 
   return (
