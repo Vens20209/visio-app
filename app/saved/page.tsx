@@ -42,14 +42,25 @@ function modeLabel(mode?: StyleMode) {
 
 export default function SavedLooksPage() {
   const [looks, setLooks] = useState<SavedLook[]>([]);
+  const [storageMessage, setStorageMessage] = useState("");
 
   useEffect(() => {
-    setLooks(JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]") as SavedLook[]);
+    try {
+      setLooks(JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]") as SavedLook[]);
+    } catch {
+      setLooks([]);
+      setStorageMessage("Saved looks could not be loaded in this browser.");
+    }
   }, []);
 
   function persist(nextLooks: SavedLook[]) {
     setLooks(nextLooks);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextLooks));
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextLooks));
+      setStorageMessage("");
+    } catch {
+      setStorageMessage("Storage is full, so Visio could not update saved looks in this browser.");
+    }
   }
 
   function deleteLook(id: string) {
@@ -75,6 +86,8 @@ export default function SavedLooksPage() {
         </div>
         <Link href="/app" className={cn(buttonVariants({ size: "lg" }))}><Sparkles className="mr-2 h-4 w-4" /> Create another</Link>
       </section>
+
+      {storageMessage && <p className="rounded-2xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-100">{storageMessage}</p>}
 
       {looks.length === 0 ? (
         <Card className="flex min-h-[28rem] flex-col items-center justify-center p-8 text-center">

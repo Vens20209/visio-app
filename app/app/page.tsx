@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 type SavedLook = {
   id: string;
   image: string;
-  original: string;
+  original?: string;
   referenceImage?: string;
   mode: StyleMode;
   vibe: string;
@@ -60,7 +60,8 @@ type FeedbackHistoryEntry = {
   occasion: string;
   styleBrief: string;
   improvements: string[];
-  originalImage: string;
+  originalImage?: string;
+  generatedImageKey: string;
   generatedImage: string;
   referenceImage?: string;
 };
@@ -156,9 +157,56 @@ function loadCanvasImage(src: string) {
   });
 }
 
+function storageKeyForImage(image: string) {
+  return `${image.length}:${image.slice(0, 96)}:${image.slice(-96)}`;
+}
+
+function readStoredList<T>(key: string) {
+  try {
+    return JSON.parse(window.localStorage.getItem(key) || "[]") as T[];
+  } catch {
+    return [];
+  }
+}
+
+function isStorageQuotaError(error: unknown) {
+  return error instanceof DOMException && (error.name === "QuotaExceededError" || error.name === "NS_ERROR_DOM_QUOTA_REACHED");
+}
+
+function writeStoredList<T>(key: string, items: T[]) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(items));
+    return true;
+  } catch (error) {
+    if (!isStorageQuotaError(error)) {
+      console.warn(`Could not save ${key}`, error);
+    }
+    return false;
+  }
+}
+
+async function createPreviewSafeImage(src: string, maxEdge = 520, quality = 0.72) {
+  if (src.length < 220_000) return src;
+
+  try {
+    const image = await loadCanvasImage(src);
+    const ratio = Math.min(maxEdge / image.width, maxEdge / image.height, 1);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(Math.round(image.width * ratio), 1);
+    canvas.height = Math.max(Math.round(image.height * ratio), 1);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return undefined;
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", quality);
+  } catch {
+    return undefined;
+  }
+}
+
 export default function VisioAppPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const referenceInputRef = useRef<HTMLInputElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
@@ -186,6 +234,15 @@ export default function VisioAppPage() {
   }, [isGenerating]);
 
   const generatedUrl = useMemo(() => (generated ? dataUrl(generated, mimeType) : ""), [generated, mimeType]);
+
+  useEffect(() => {
+    if (!generatedUrl || isGenerating) return;
+    const timer = window.setTimeout(() => {
+      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      resultRef.current?.focus({ preventScroll: true });
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [generatedUrl, isGenerating]);
 
   function clearResult() {
     setGenerated("");
@@ -243,9 +300,7 @@ export default function VisioAppPage() {
 
   function selectOccasion(chip: string) {
     setOccasion(chip);
-    if (chip !== "Custom" && occasionPrompts[chip]) {
-      setStyleBrief((current) => (current.trim() ? `${current.trim()} ${occasionPrompts[chip]}` : occasionPrompts[chip]));
-    }
+    setStyleBrief(chip === "Custom" ? "" : occasionPrompts[chip] || "");
   }
 
   function toggleImprovement(option: string) {
@@ -321,7 +376,7 @@ export default function VisioAppPage() {
       const [before, after] = await Promise.all([loadCanvasImage(preview), loadCanvasImage(generatedUrl)]);
       const canvas = document.createElement("canvas");
       canvas.width = 1200;
-      canvas.height = 760;
+      canvas.height = 1500;
       const ctx = canvas.getContext("2d");
       if (!ctx) return downloadImage();
 
@@ -331,35 +386,47 @@ export default function VisioAppPage() {
       gradient.addColorStop(0, "rgba(124,120,255,0.45)");
       gradient.addColorStop(1, "rgba(46,203,255,0.24)");
       ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, 120);
+      ctx.fillRect(0, 0, canvas.width, 150);
       ctx.fillStyle = "#ffffff";
       ctx.font = "bold 44px sans-serif";
       ctx.fillText("Visio Glow-Up", 44, 74);
       ctx.font = "24px sans-serif";
-      ctx.fillText(`${mode === "try-this-on" ? "Try This On" : "Style Me"} · ${vibe} · ${intensity}`, 44, 108);
+      ctx.fillText(`${mode === "try-this-on" ? "Try This On" : "Style Me"} · ${vibe} · ${intensity}`, 44, 115);
 
-      const drawContained = (image: HTMLImageElement, x: number, y: number, w: number, h: number) => {
+      const drawPortrait = (image: HTMLImageElement, x: number, y: number, w: number, h: number) => {
+        const radius = 28;
         const ratio = Math.min(w / image.width, h / image.height);
         const dw = image.width * ratio;
         const dh = image.height * ratio;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, radius);
+        ctx.clip();
         ctx.fillStyle = "#050711";
         ctx.fillRect(x, y, w, h);
         ctx.drawImage(image, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+        ctx.restore();
+        ctx.strokeStyle = "rgba(255,255,255,0.12)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, w, h);
       };
 
-      drawContained(before, 44, 170, 532, 520);
-      drawContained(after, 624, 170, 532, 520);
+      drawPortrait(before, 72, 245, 480, 720);
+      drawPortrait(after, 648, 245, 480, 720);
       ctx.fillStyle = "#94a3b8";
       ctx.font = "bold 22px sans-serif";
-      ctx.fillText("BEFORE", 44, 150);
+      ctx.fillText("BEFORE", 72, 220);
       ctx.fillStyle = "#2ecbff";
-      ctx.fillText("AFTER", 624, 150);
+      ctx.fillText("AFTER", 648, 220);
       ctx.fillStyle = "#ffffff";
+      ctx.font = "28px sans-serif";
+      ctx.fillText("Share your Visio glow-up", 72, 1045);
+      ctx.fillStyle = "#94a3b8";
       ctx.font = "20px sans-serif";
-      ctx.fillText("Share your Visio glow-up", 44, 730);
+      ctx.fillText("Portrait-friendly before / after by Visio", 72, 1080);
 
       const link = document.createElement("a");
-      link.href = canvas.toDataURL("image/jpeg", 0.92);
+      link.href = canvas.toDataURL("image/jpeg", 0.9);
       link.download = "visio-glow-up.jpg";
       link.click();
     } catch {
@@ -367,14 +434,13 @@ export default function VisioAppPage() {
     }
   }
 
-  function saveLook() {
+  async function saveLook() {
     if (!generated || !preview || !stylistNotes) return;
-    const links = shoppingLinks;
     const look: SavedLook = {
       id: crypto.randomUUID(),
       image: generatedUrl,
-      original: preview,
-      referenceImage: referencePreview || undefined,
+      original: await createPreviewSafeImage(preview),
+      referenceImage: referencePreview ? await createPreviewSafeImage(referencePreview) : undefined,
       mode,
       vibe,
       improvements,
@@ -382,14 +448,52 @@ export default function VisioAppPage() {
       occasion,
       styleBrief,
       stylistNotes,
-      shoppingLinks: links,
+      shoppingLinks,
       createdAt: new Date().toISOString(),
       mimeType,
       resultFeedback: selectedFeedback || undefined,
     };
-    const current = JSON.parse(window.localStorage.getItem(SAVED_LOOKS_KEY) || "[]") as SavedLook[];
-    window.localStorage.setItem(SAVED_LOOKS_KEY, JSON.stringify([look, ...current]));
-    setSavedMessage("Saved locally in this browser.");
+    const current = readStoredList<SavedLook>(SAVED_LOOKS_KEY);
+    const saved = writeStoredList(SAVED_LOOKS_KEY, [look, ...current].slice(0, 20));
+    setSavedMessage(
+      saved
+        ? "Saved locally in this browser."
+        : "Storage is full, so Visio could not save this look. Download it or delete older saved looks, then try again."
+    );
+  }
+
+  function getLatestFeedbackForCurrentLook() {
+    if (!generatedUrl || !preview) return null;
+    const currentKey = storageKeyForImage(generatedUrl);
+    const history = readStoredList<FeedbackHistoryEntry & { generatedImage?: string }>(FEEDBACK_HISTORY_KEY);
+    const match = history.find((entry) => entry.generatedImageKey === currentKey || entry.generatedImage === generatedUrl);
+    return match?.feedback ?? null;
+  }
+
+  async function saveResultFeedback(feedback: ResultFeedbackOption) {
+    if (!generatedUrl || !preview) return;
+    setSelectedFeedback(feedback);
+    const entry: FeedbackHistoryEntry = {
+      id: crypto.randomUUID(),
+      feedback,
+      createdAt: new Date().toISOString(),
+      mode,
+      vibe,
+      intensity,
+      occasion,
+      styleBrief,
+      improvements,
+      originalImage: await createPreviewSafeImage(preview),
+      generatedImageKey: storageKeyForImage(generatedUrl),
+      referenceImage: referencePreview ? await createPreviewSafeImage(referencePreview) : undefined,
+    };
+    const history = readStoredList<FeedbackHistoryEntry>(FEEDBACK_HISTORY_KEY);
+    const saved = writeStoredList(FEEDBACK_HISTORY_KEY, [entry, ...history].slice(0, 40));
+    setSavedMessage(
+      saved
+        ? "Feedback saved. Visio will use this to improve your next result."
+        : "Feedback selected, but storage is full. Your next generation will still use it in this session."
+    );
   }
 
   function getLatestFeedbackForCurrentLook() {
@@ -597,7 +701,7 @@ export default function VisioAppPage() {
           </Card>
         </div>
 
-        <Card className="min-h-[42rem] p-5">
+        <Card ref={resultRef} tabIndex={-1} className="scroll-mt-6 p-4 outline-none ring-primary/40 focus-visible:ring-2 sm:p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-xl font-semibold">Before / After</h2>
@@ -614,17 +718,17 @@ export default function VisioAppPage() {
             </div>
           ) : generated ? (
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-              <div className="grid items-stretch gap-4 lg:grid-cols-2">
-                <div className="flex flex-col gap-2">
+              <div className="grid items-stretch gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+                <div className="order-2 flex flex-col gap-2 lg:order-1">
                   <span className="w-fit rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-muted">Before</span>
                   <div className="flex min-h-[28rem] flex-1 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-black/25 p-2 md:min-h-[36rem]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={preview} alt="Before" className="max-h-[70vh] w-full object-contain" />
                   </div>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="order-1 flex flex-col gap-2 lg:order-2">
                   <span className="w-fit rounded-full bg-primary/20 px-3 py-1 text-xs uppercase tracking-[0.2em] text-accent">After</span>
-                  <div className="flex min-h-[28rem] flex-1 items-center justify-center overflow-hidden rounded-3xl border border-primary/30 bg-black/25 p-2 shadow-glow md:min-h-[36rem]">
+                  <div className="flex min-h-[34rem] flex-1 items-center justify-center overflow-hidden rounded-3xl border border-primary/40 bg-black/25 p-2 shadow-glow md:min-h-[44rem]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={generatedUrl} alt="Generated upgraded look" className="max-h-[70vh] w-full object-contain" />
                   </div>
