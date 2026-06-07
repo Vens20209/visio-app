@@ -9,6 +9,13 @@ import { Card } from "@/components/ui/card";
 import type { ShoppingLink, StylistNotes } from "@/lib/visio/stylist-notes";
 import type { StyleIntensity, StyleMode } from "@/lib/visio/options";
 
+type ResultFeedbackOption =
+  | "That’s me but better"
+  | "Face changed too much"
+  | "Outfit not my style"
+  | "Make it more realistic"
+  | "Make it more stylish";
+
 type SavedLook = {
   id: string;
   image: string;
@@ -24,6 +31,7 @@ type SavedLook = {
   shoppingLinks?: ShoppingLink[];
   createdAt: string;
   mimeType: string;
+  resultFeedback?: ResultFeedbackOption;
 };
 
 const STORAGE_KEY = "visio:saved-looks";
@@ -34,14 +42,25 @@ function modeLabel(mode?: StyleMode) {
 
 export default function SavedLooksPage() {
   const [looks, setLooks] = useState<SavedLook[]>([]);
+  const [storageMessage, setStorageMessage] = useState("");
 
   useEffect(() => {
-    setLooks(JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]") as SavedLook[]);
+    try {
+      setLooks(JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]") as SavedLook[]);
+    } catch {
+      setLooks([]);
+      setStorageMessage("Saved looks could not be loaded in this browser.");
+    }
   }, []);
 
   function persist(nextLooks: SavedLook[]) {
     setLooks(nextLooks);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextLooks));
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextLooks));
+      setStorageMessage("");
+    } catch {
+      setStorageMessage("Storage is full, so Visio could not update saved looks in this browser.");
+    }
   }
 
   function deleteLook(id: string) {
@@ -67,6 +86,8 @@ export default function SavedLooksPage() {
         </div>
         <Link href="/app" className={cn(buttonVariants({ size: "lg" }))}><Sparkles className="mr-2 h-4 w-4" /> Create another</Link>
       </section>
+
+      {storageMessage && <p className="rounded-2xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-100">{storageMessage}</p>}
 
       {looks.length === 0 ? (
         <Card className="flex min-h-[28rem] flex-col items-center justify-center p-8 text-center">
@@ -128,6 +149,11 @@ export default function SavedLooksPage() {
                 )}
 
                 {look.styleBrief && <p className="line-clamp-2 text-xs text-muted">Brief: {look.styleBrief}</p>}
+                {look.resultFeedback && (
+                  <div className="rounded-2xl border border-primary/30 bg-primary/10 p-3 text-xs text-accent">
+                    Feedback: {look.resultFeedback}
+                  </div>
+                )}
 
                 {look.shoppingLinks && look.shoppingLinks.length > 0 && (
                   <div>
