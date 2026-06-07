@@ -50,19 +50,6 @@ type ResultFeedbackOption =
   | "Make it more realistic"
   | "Make it more stylish";
 
-type FeedbackHistoryEntry = {
-  id: string;
-  feedback: ResultFeedbackOption;
-  createdAt: string;
-  mode: StyleMode;
-  vibe: StyleVibe;
-  intensity: StyleIntensity;
-  occasion: string;
-  styleBrief: string;
-  improvements: string[];
-  generatedImageKey: string;
-};
-
 const RESULT_FEEDBACK_OPTIONS: ResultFeedbackOption[] = [
   "That’s me but better",
   "Face changed too much",
@@ -71,7 +58,6 @@ const RESULT_FEEDBACK_OPTIONS: ResultFeedbackOption[] = [
   "Make it more stylish",
 ];
 
-const FEEDBACK_HISTORY_KEY = "visio:feedback-history";
 const SAVED_LOOKS_KEY = "visio:saved-looks";
 
 const loadingSteps = [
@@ -152,10 +138,6 @@ function loadCanvasImage(src: string) {
     image.onerror = reject;
     image.src = src;
   });
-}
-
-function storageKeyForImage(image: string) {
-  return `${image.length}:${image.slice(0, 96)}:${image.slice(-96)}`;
 }
 
 function readStoredList<T>(key: string) {
@@ -322,8 +304,7 @@ export default function VisioAppPage() {
     setSavedMessage("");
 
     const body = new FormData();
-    const latestFeedbackForCurrentLook = getLatestFeedbackForCurrentLook();
-    const feedbackForNextResult = selectedFeedback ?? latestFeedbackForCurrentLook;
+    const feedbackForNextResult = selectedFeedback;
     body.append("image", file);
     if (referenceFile) body.append("referenceImage", referenceFile);
     body.append("mode", mode);
@@ -459,36 +440,9 @@ export default function VisioAppPage() {
     );
   }
 
-  function getLatestFeedbackForCurrentLook() {
-    if (!generatedUrl) return null;
-    const currentKey = storageKeyForImage(generatedUrl);
-    const history = readStoredList<FeedbackHistoryEntry>(FEEDBACK_HISTORY_KEY);
-    const match = history.find((entry) => entry.generatedImageKey === currentKey);
-    return match?.feedback ?? null;
-  }
-
   function saveResultFeedback(feedback: ResultFeedbackOption) {
-    if (!generatedUrl) return;
     setSelectedFeedback(feedback);
-    const entry: FeedbackHistoryEntry = {
-      id: crypto.randomUUID(),
-      feedback,
-      createdAt: new Date().toISOString(),
-      mode,
-      vibe,
-      intensity,
-      occasion,
-      styleBrief,
-      improvements,
-      generatedImageKey: storageKeyForImage(generatedUrl),
-    };
-    const history = readStoredList<FeedbackHistoryEntry>(FEEDBACK_HISTORY_KEY);
-    const saved = writeStoredList(FEEDBACK_HISTORY_KEY, [entry, ...history].slice(0, 20));
-    setSavedMessage(
-      saved
-        ? "Feedback saved. Visio will use this to improve your next result."
-        : "Feedback selected, but storage is full. Your next generation will still use it in this session."
-    );
+    setSavedMessage("Feedback selected. Your next generation will use this.");
   }
 
   return (
