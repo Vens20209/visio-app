@@ -6,6 +6,7 @@ import { Download, Sparkles, Trash2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { getStoredList, setStoredList } from "@/lib/visio/storage";
 import type { ShoppingLink, StylistNotes } from "@/lib/visio/stylist-notes";
 import type { StyleIntensity, StyleMode } from "@/lib/visio/options";
 
@@ -45,26 +46,23 @@ export default function SavedLooksPage() {
   const [storageMessage, setStorageMessage] = useState("");
 
   useEffect(() => {
-    try {
-      setLooks(JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]") as SavedLook[]);
-    } catch {
-      setLooks([]);
-      setStorageMessage("Saved looks could not be loaded in this browser.");
-    }
+    let active = true;
+    void getStoredList<SavedLook>(STORAGE_KEY).then((storedLooks) => {
+      if (active) setLooks(storedLooks);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  function persist(nextLooks: SavedLook[]) {
+  async function persist(nextLooks: SavedLook[]) {
     setLooks(nextLooks);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextLooks));
-      setStorageMessage("");
-    } catch {
-      setStorageMessage("Storage is full, so Visio could not update saved looks in this browser.");
-    }
+    const saved = await setStoredList(STORAGE_KEY, nextLooks);
+    setStorageMessage(saved ? "" : "Visio could not update saved looks on this device.");
   }
 
   function deleteLook(id: string) {
-    persist(looks.filter((look) => look.id !== id));
+    void persist(looks.filter((look) => look.id !== id));
   }
 
   function downloadLook(look: SavedLook) {
