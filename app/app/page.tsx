@@ -24,6 +24,7 @@ import type { ShoppingLink, StylistNotes } from "@/lib/visio/stylist-notes";
 import { IMPROVEMENT_OPTIONS, OCCASION_CHIPS, STYLE_INTENSITIES, STYLE_VIBES } from "@/lib/visio/options";
 import type { StyleIntensity, StyleMode, StyleVibe } from "@/lib/visio/options";
 import { cn } from "@/lib/utils";
+import { getStoredList, setStoredList } from "@/lib/visio/storage";
 
 type SavedLook = {
   id: string;
@@ -62,7 +63,7 @@ type FeedbackHistoryEntry = {
   improvements: string[];
   originalImage?: string;
   generatedImageKey: string;
-  generatedImage: string;
+  generatedImage?: string;
   referenceImage?: string;
 };
 
@@ -159,30 +160,6 @@ function loadCanvasImage(src: string) {
 
 function storageKeyForImage(image: string) {
   return `${image.length}:${image.slice(0, 96)}:${image.slice(-96)}`;
-}
-
-function readStoredList<T>(key: string) {
-  try {
-    return JSON.parse(window.localStorage.getItem(key) || "[]") as T[];
-  } catch {
-    return [];
-  }
-}
-
-function isStorageQuotaError(error: unknown) {
-  return error instanceof DOMException && (error.name === "QuotaExceededError" || error.name === "NS_ERROR_DOM_QUOTA_REACHED");
-}
-
-function writeStoredList<T>(key: string, items: T[]) {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(items));
-    return true;
-  } catch (error) {
-    if (!isStorageQuotaError(error)) {
-      console.warn(`Could not save ${key}`, error);
-    }
-    return false;
-  }
 }
 
 async function createPreviewSafeImage(src: string, maxEdge = 520, quality = 0.72) {
@@ -325,7 +302,7 @@ export default function VisioAppPage() {
     setSavedMessage("");
 
     const body = new FormData();
-    const latestFeedbackForCurrentLook = getLatestFeedbackForCurrentLook();
+    const latestFeedbackForCurrentLook = await getLatestFeedbackForCurrentLook();
     const feedbackForNextResult = selectedFeedback ?? latestFeedbackForCurrentLook;
     body.append("image", file);
     if (referenceFile) body.append("referenceImage", referenceFile);
@@ -453,19 +430,19 @@ export default function VisioAppPage() {
       mimeType,
       resultFeedback: selectedFeedback || undefined,
     };
-    const current = readStoredList<SavedLook>(SAVED_LOOKS_KEY);
-    const saved = writeStoredList(SAVED_LOOKS_KEY, [look, ...current].slice(0, 20));
+    const current = await getStoredList<SavedLook>(SAVED_LOOKS_KEY);
+    const saved = await setStoredList(SAVED_LOOKS_KEY, [look, ...current].slice(0, 50));
     setSavedMessage(
       saved
-        ? "Saved locally in this browser."
-        : "Storage is full, so Visio could not save this look. Download it or delete older saved looks, then try again."
+        ? "Saved on this device."
+        : "Visio could not save this look on this device. You can still download the image."
     );
   }
 
-  function getLatestFeedbackForCurrentLook() {
+  async function getLatestFeedbackForCurrentLook() {
     if (!generatedUrl || !preview) return null;
     const currentKey = storageKeyForImage(generatedUrl);
-    const history = readStoredList<FeedbackHistoryEntry & { generatedImage?: string }>(FEEDBACK_HISTORY_KEY);
+    const history = await getStoredList<FeedbackHistoryEntry & { generatedImage?: string }>(FEEDBACK_HISTORY_KEY);
     const match = history.find((entry) => entry.generatedImageKey === currentKey || entry.generatedImage === generatedUrl);
     return match?.feedback ?? null;
   }
@@ -487,42 +464,13 @@ export default function VisioAppPage() {
       generatedImageKey: storageKeyForImage(generatedUrl),
       referenceImage: referencePreview ? await createPreviewSafeImage(referencePreview) : undefined,
     };
-    const history = readStoredList<FeedbackHistoryEntry>(FEEDBACK_HISTORY_KEY);
-    const saved = writeStoredList(FEEDBACK_HISTORY_KEY, [entry, ...history].slice(0, 40));
+    const history = await getStoredList<FeedbackHistoryEntry>(FEEDBACK_HISTORY_KEY);
+    const saved = await setStoredList(FEEDBACK_HISTORY_KEY, [entry, ...history].slice(0, 40));
     setSavedMessage(
       saved
         ? "Feedback saved. Visio will use this to improve your next result."
-        : "Feedback selected, but storage is full. Your next generation will still use it in this session."
+        : "Feedback selected, but it could not be stored. Your next generation will still use it in this session."
     );
-  }
-
-  function getLatestFeedbackForCurrentLook() {
-    if (!generatedUrl || !preview) return null;
-    const history = JSON.parse(window.localStorage.getItem(FEEDBACK_HISTORY_KEY) || "[]") as FeedbackHistoryEntry[];
-    const match = history.find((entry) => entry.generatedImage === generatedUrl && entry.originalImage === preview);
-    return match?.feedback ?? null;
-  }
-
-  function saveResultFeedback(feedback: ResultFeedbackOption) {
-    if (!generatedUrl || !preview) return;
-    setSelectedFeedback(feedback);
-    const entry: FeedbackHistoryEntry = {
-      id: crypto.randomUUID(),
-      feedback,
-      createdAt: new Date().toISOString(),
-      mode,
-      vibe,
-      intensity,
-      occasion,
-      styleBrief,
-      improvements,
-      originalImage: preview,
-      generatedImage: generatedUrl,
-      referenceImage: referencePreview || undefined,
-    };
-    const history = JSON.parse(window.localStorage.getItem(FEEDBACK_HISTORY_KEY) || "[]") as FeedbackHistoryEntry[];
-    window.localStorage.setItem(FEEDBACK_HISTORY_KEY, JSON.stringify([entry, ...history]));
-    setSavedMessage("Feedback saved. Visio will use this to improve your next result.");
   }
 
   return (
