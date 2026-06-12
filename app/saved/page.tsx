@@ -43,12 +43,16 @@ function modeLabel(mode?: StyleMode) {
 
 export default function SavedLooksPage() {
   const [looks, setLooks] = useState<SavedLook[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [storageMessage, setStorageMessage] = useState("");
 
   useEffect(() => {
     let active = true;
     void getStoredList<SavedLook>(STORAGE_KEY).then((storedLooks) => {
-      if (active) setLooks(storedLooks);
+      if (active) {
+        setLooks(storedLooks);
+        setLoaded(true);
+      }
     });
     return () => {
       active = false;
@@ -87,7 +91,13 @@ export default function SavedLooksPage() {
 
       {storageMessage && <p className="rounded-2xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-100">{storageMessage}</p>}
 
-      {looks.length === 0 ? (
+      {!loaded ? (
+        <Card className="flex min-h-[28rem] flex-col items-center justify-center p-8 text-center">
+          <Sparkles className="mb-5 h-12 w-12 animate-pulse text-accent" />
+          <h2 className="text-2xl font-semibold">Loading your looks…</h2>
+          <p className="mt-3 max-w-md text-sm leading-6 text-muted">Opening your saved looks on this device.</p>
+        </Card>
+      ) : looks.length === 0 ? (
         <Card className="flex min-h-[28rem] flex-col items-center justify-center p-8 text-center">
           <Sparkles className="mb-5 h-12 w-12 text-accent" />
           <h2 className="text-2xl font-semibold">No saved looks yet.</h2>
