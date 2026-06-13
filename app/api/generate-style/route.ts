@@ -204,6 +204,7 @@ export async function POST(request: Request) {
       n: 1,
       size: "1024x1536",
       quality: "medium",
+      input_fidelity: "high",
       output_format: "jpeg",
       stream: false,
     };
