@@ -164,7 +164,7 @@ export function buildStylePrompt({
 
   /* --- Setting / background ----------------------------------------- */
   const settingDirective = wantsBackground
-    ? `THE SETTING: Replace the background with a believable, premium environment that fits the occasion and the styling — uncluttered, depth-of-field friendly, never busy.`
+    ? `THE SETTING: Build a specific, cinematic location that tells the story of the occasion — for a wedding, an elegant venue with florals and warm celebration light; for an interview, a modern office; for a date, an intimate evening spot. Believable and premium, uncluttered, depth-of-field friendly — never a generic backdrop unless the styling calls for one.`
     : `THE SETTING: Keep the original background; only tidy distracting elements and refine it subtly.`;
 
   /* --- Photography --------------------------------------------------- */
@@ -199,6 +199,7 @@ export function buildStylePrompt({
     groomingDirective,
     feedbackDirective,
     QUALITY_GUARDRAILS,
+    `FINAL CHECK — identity above all. Compare the result to the input photo: if the face, skin tone, age, or body shape do not clearly belong to the same individual, the result is WRONG. The same exact person — dressed and photographed beautifully. Nothing else is acceptable.`,
   ]
     .filter(Boolean)
     .join("\n\n");
